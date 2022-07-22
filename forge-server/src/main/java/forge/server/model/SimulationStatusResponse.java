@@ -1,11 +1,12 @@
 package forge.server.model;
 
 public class SimulationStatusResponse {
-    private final long id;
-    private final String status;
-    private final String[] log;
-    private final boolean finished;
-    private final boolean success;
+    private long id;
+    private String status;
+    private String error;
+    private String[] log;
+    private boolean finished;
+    private boolean success;
 
     public SimulationStatusResponse(long id, String status, String[] log, boolean finished, boolean success) {
         this.id = id;
@@ -19,19 +20,47 @@ public class SimulationStatusResponse {
         return id;
     }
 
+    public void setId(long id) {
+        this.id = id;
+    }
+
     public String getStatus() {
         return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getError() {
+        return error;
+    }
+
+    public void setError(String error) {
+        this.error = error;
     }
 
     public String[] getLog() {
         return log;
     }
 
+    public void setLog(String[] log) {
+        this.log = log;
+    }
+
     public boolean isFinished() {
         return finished;
     }
 
+    public void setFinished(boolean finished) {
+        this.finished = finished;
+    }
+
     public boolean isSuccess() {
         return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
     }
 }

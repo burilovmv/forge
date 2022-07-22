@@ -10,12 +10,12 @@ import forge.server.model.SimulationStartRequest;
 import forge.server.model.SimulationStatusResponse;
 import forge.server.util.TimeLimitedCodeBlock;
 import forge.util.FileSection;
-import forge.util.Lang;
 import forge.util.TextUtil;
 import forge.util.WordUtil;
 import org.apache.commons.lang3.time.StopWatch;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -27,40 +27,54 @@ public class SimulationsQueue {
 
     private final AtomicLong counter = new AtomicLong(1);
 
-    private HashMap<Long, SimulationThread> _threads = new HashMap<Long, SimulationThread>();
-    private HashMap<Long, SimulationStatusResponse> _results = new HashMap<Long, SimulationStatusResponse>();
+    private ConcurrentHashMap <Long, SimulationThread> threads = new ConcurrentHashMap<Long, SimulationThread>();
+    private ConcurrentHashMap <Long, SimulationStatusResponse> results = new ConcurrentHashMap <Long, SimulationStatusResponse>();
 
     public static SimulationsQueue getInstance() {
         return _instance;
     }
 
     public SimulationStatusResponse getStatus(long id) {
-        SimulationThread t = _threads.get(id);
+        SimulationThread t = threads.get(id);
         if(t != null) {
-
+            return t.getStatus();
         }
 
-        return _results.get(id);
+        return results.get(id);
     }
 
     public long start(SimulationStartRequest params) {
-        if(_threads.size() >= MAX_THREADS) {
+        if(threads.size() >= MAX_THREADS) {
             return -1;
         }
 
         long id = counter.incrementAndGet();
-        SimulationThread t = new SimulationThread(params);
-        _threads.put(id, t);
+        SimulationThread t = new SimulationThread(id, params);
+        threads.put(id, t);
         t.start();
 
         return id;
     }
 
     private class SimulationThread extends Thread {
-        private final SimulationStartRequest _params;
+        private final SimulationStartRequest params;
+        private final SimulationStatusResponse status;
 
-        public SimulationThread(SimulationStartRequest _params) {
-            this._params = _params;
+        public long getId() {
+            return getStatus().getId();
+        }
+
+        public SimulationStartRequest getParams() {
+            return params;
+        }
+
+        public SimulationStatusResponse getStatus() {
+            return status;
+        }
+
+        public SimulationThread(long id, SimulationStartRequest params) {
+            this.params = params;
+            status = new SimulationStatusResponse(id, "Starting", new String[]{}, false, false);
         }
 
         private void simulateSingleMatch(final Match mc, int iGame, List<String> logLines) {
@@ -106,45 +120,58 @@ public class SimulationsQueue {
 
             GameType type = GameType.Constructed;
 
-            if(_params.getType() != null) {
-                type = GameType.valueOf(WordUtil.capitalize(_params.getType()));
+            if (params.getType() != null) {
+                type = GameType.valueOf(WordUtil.capitalize(params.getType()));
             }
 
-            for(int i=0; i< _params.getDecks().length;i++) {
-                Deck d = DeckSerializer.fromSections(
-                        FileSection.parseSections(
-                                Arrays.asList(_params.getDecks()[i].split("\\\\r?\\\\n"))
-                        )
-                );
+            try {
+                for (int i = 0; i < params.getDecks().length; i++) {
+                    Deck d = DeckSerializer.fromSections(
+                            FileSection.parseSections(
+                                    Arrays.asList(params.getDecks()[i].split("\\\\r?\\\\n"))
+                            )
+                    );
 
-                if (d == null) {
-                    return;
+                    if (d == null) {
+                        return;
+                    }
+
+                    RegisteredPlayer rp;
+
+                    if (type.equals(GameType.Commander)) {
+                        rp = RegisteredPlayer.forCommander(d);
+                    } else {
+                        rp = new RegisteredPlayer(d);
+                    }
+
+                    String name = TextUtil.concatNoSpace("Ai(", String.valueOf(i), ")-", d.getName());
+
+                    rp.setPlayer(GamePlayerUtil.createAiPlayer(name, i));
+                    pp.add(rp);
                 }
 
-                RegisteredPlayer rp;
+                GameRules rules = new GameRules(type);
+                rules.setAppliedVariants(EnumSet.of(type));
 
-                if (type.equals(GameType.Commander)) {
-                    rp = RegisteredPlayer.forCommander(d);
-                } else {
-                    rp = new RegisteredPlayer(d);
+                Match mc = new Match(rules, pp, "Test");
+
+                List<String> logLines = new ArrayList<String>();
+
+                for (int iGame = 0; iGame < params.getGames(); iGame++) {
+                    simulateSingleMatch(mc, iGame, logLines);
                 }
 
-                String name = TextUtil.concatNoSpace("Ai(", String.valueOf(i), ")-", d.getName());
-
-                rp.setPlayer(GamePlayerUtil.createAiPlayer(name, i));
-                pp.add(rp);
+                status.setLog(logLines.toArray(new String[] {}));
+                status.setSuccess(true);
+            } catch (Exception ex) {
+                status.setSuccess(false);
+                status.setError(ex.toString());
             }
 
-            GameRules rules = new GameRules(type);
-            rules.setAppliedVariants(EnumSet.of(type));
+            status.setFinished(true);
 
-            Match mc = new Match(rules, pp, "Test");
-
-            List<String> logLines = new ArrayList<String>();
-
-            for (int iGame = 0; iGame < _params.getGames(); iGame++) {
-                simulateSingleMatch(mc, iGame, logLines);
-            }
+            results.put(getId(), status);
+            threads.remove(getId());
         }
     }
 }
