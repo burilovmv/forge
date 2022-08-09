@@ -4,7 +4,6 @@ import forge.deck.Deck;
 import forge.deck.io.DeckSerializer;
 import forge.game.*;
 import forge.game.player.RegisteredPlayer;
-import forge.model.FModel;
 import forge.player.GamePlayerUtil;
 import forge.server.model.SimulationStartRequest;
 import forge.server.model.SimulationStatusResponse;
@@ -13,6 +12,8 @@ import forge.util.FileSection;
 import forge.util.TextUtil;
 import forge.util.WordUtil;
 import org.apache.commons.lang3.time.StopWatch;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,8 +58,10 @@ public class SimulationsQueue {
     }
 
     private class SimulationThread extends Thread {
-        private final SimulationStartRequest params;
-        private final SimulationStatusResponse status;
+        final Logger log =
+                LoggerFactory.getLogger(SimulationThread.class);
+        private SimulationStartRequest params;
+        private SimulationStatusResponse status;
 
         public long getId() {
             return getStatus().getId();
@@ -114,7 +117,7 @@ public class SimulationsQueue {
 
         @Override
         public void run() {
-            FModel.initialize(null, null);
+            status.setStatus("Initializing");
 
             List<RegisteredPlayer> pp = new ArrayList<>();
 
@@ -126,14 +129,18 @@ public class SimulationsQueue {
 
             try {
                 for (int i = 0; i < params.getDecks().length; i++) {
+                    status.setStatus(String.format("Parsing deck #%d", i+1));
+
+                    log.debug("Deck is: " + params.getDecks()[i]);
+
                     Deck d = DeckSerializer.fromSections(
                             FileSection.parseSections(
-                                    Arrays.asList(params.getDecks()[i].split("\\\\r?\\\\n"))
+                                    Arrays.asList(params.getDecks()[i].split("\\r?\\n"))
                             )
                     );
 
                     if (d == null) {
-                        return;
+                        throw new IllegalArgumentException(String.format("Error parsing deck #%d", i));
                     }
 
                     RegisteredPlayer rp;
@@ -158,12 +165,21 @@ public class SimulationsQueue {
                 List<String> logLines = new ArrayList<String>();
 
                 for (int iGame = 0; iGame < params.getGames(); iGame++) {
+                    status.setStatus(String.format("Running match %d of %d", iGame + 1, params.getGames()));
+
                     simulateSingleMatch(mc, iGame, logLines);
+
+                    status.setLog(logLines.toArray(new String[] {}));
                 }
 
                 status.setLog(logLines.toArray(new String[] {}));
                 status.setSuccess(true);
+
+                status.setStatus("Finished");
             } catch (Exception ex) {
+                log.error("Error running simulation", ex);
+
+                status.setStatus("Failed");
                 status.setSuccess(false);
                 status.setError(ex.toString());
             }
@@ -175,6 +191,8 @@ public class SimulationsQueue {
             for(long k = id - MAX_THREADS; k >= 0; k--) {
                 results.remove(k);
             }
+
+            log.info("Finished. Adding result #" + id);
 
             results.put(id, status);
             threads.remove(getId());
