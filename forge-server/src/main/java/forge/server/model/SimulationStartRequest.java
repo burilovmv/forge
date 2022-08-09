@@ -5,6 +5,9 @@ public class SimulationStartRequest {
     private int games;
     private String[] decks;
 
+    public SimulationStartRequest() {
+    }
+
     public SimulationStartRequest(String type, int games, String[] decks) {
         this.type = type;
         this.games = games;

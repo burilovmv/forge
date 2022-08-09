@@ -170,7 +170,13 @@ public class SimulationsQueue {
 
             status.setFinished(true);
 
-            results.put(getId(), status);
+            long id = getId();
+
+            for(long k = id - MAX_THREADS; k >= 0; k--) {
+                results.remove(k);
+            }
+
+            results.put(id, status);
             threads.remove(getId());
         }
     }

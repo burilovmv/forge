@@ -8,6 +8,9 @@ public class SimulationStatusResponse {
     private boolean finished;
     private boolean success;
 
+    public SimulationStatusResponse() {
+    }
+
     public SimulationStatusResponse(long id, String status, String[] log, boolean finished, boolean success) {
         this.id = id;
         this.status = status;

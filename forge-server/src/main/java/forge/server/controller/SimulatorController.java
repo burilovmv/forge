@@ -1,14 +1,5 @@
 package forge.server.controller;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
-
-import forge.deck.Deck;
-import forge.game.GameRules;
-import forge.game.GameType;
-import forge.game.player.RegisteredPlayer;
 import forge.server.core.SimulationsQueue;
 import forge.server.model.SimulationStartRequest;
 import forge.server.model.SimulationStartResponse;
@@ -32,6 +23,6 @@ public class SimulatorController {
 
     @GetMapping("/simulation/{id}")
     public SimulationStatusResponse getSimulationStatus(@PathVariable Long id) {
-        return null;
+        return SimulationsQueue.getInstance().getStatus(id);
     }
 }

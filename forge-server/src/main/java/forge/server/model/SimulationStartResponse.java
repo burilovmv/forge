@@ -1,9 +1,12 @@
 package forge.server.model;
 
 public class SimulationStartResponse {
-    private final long id;
-    private final String status;
-    private final boolean success;
+    private long id;
+    private String status;
+    private boolean success;
+
+    public SimulationStartResponse() {
+    }
 
     public SimulationStartResponse(long id, String status, boolean success) {
         this.id = id;
