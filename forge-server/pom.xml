@@ -51,47 +51,13 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>2.7.0</version>
             </plugin>
-        <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-shade-plugin</artifactId>
-            <executions>
-                <execution>
-                    <phase>package</phase>
-                    <goals>
-                        <goal>shade</goal>
-                    </goals>
-                    <configuration>
-                        <finalName>${project.artifactId}-${project.version}-jar-with-dependencies</finalName>
-                        <transformers>
-                            <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"> 
-                                <manifestEntries>
-                                    <Main-Class>forge.server.ServerApplication</Main-Class>
-                                </manifestEntries>
-                            </transformer>
-                            <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                                <resource>logback.xml</resource>
-                                <file>logback.xml</file>
-                            </transformer>
-                        </transformers>
-                        <filters>
-                            <filter>
-                                <artifact>*:*</artifact>
-                                <excludes>
-                                    <exclude>logback.xml</exclude>
-                                </excludes>
-                            </filter>
-                        </filters>
-                    </configuration>
-                </execution>
-            </executions>
-        </plugin>
-<!--            <plugin>
+            <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <configuration>
                     <attach>false</attach>
-                    <descriptors>
-                        <descriptor>assembly.xml</descriptor> 
-                    </descriptors>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef> 
+                    </descriptorRefs>
                     <archive>
                         <manifest>
                             <mainClass>forge.server.ServerApplication</mainClass>
@@ -109,7 +75,6 @@
                     </execution>
                 </executions>
             </plugin>
--->
         </plugins>
     </build>
 </project>
